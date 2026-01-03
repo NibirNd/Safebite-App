@@ -5,23 +5,34 @@ export enum ThreatLevel {
   UNKNOWN = 'UNKNOWN'
 }
 
+export interface JournalEntry {
+  id: string;
+  timestamp: number; // Unix timestamp
+  foodName: string;
+  notes: string;
+  status: 'SAFE' | 'UNSAFE' | 'NEUTRAL';
+}
+
 export interface UserProfile {
   id: string; // Unique ID (Google sub or Guest ID)
   authType: 'GUEST' | 'GOOGLE';
   email?: string;
   name: string;
-  conditions: string[]; // e.g., "Celiac", "IBS", "Lactose Intolerance"
-  allergies: string[]; // e.g., "Peanuts", "Shellfish"
-  generatedAvoidanceList: string[]; // AI inferred avoidances based on conditions
-  customAvoidanceList: string[]; // User manually added avoidances
-  goals: string; // e.g., "Reduce inflammation", "Avoid bloating"
+  conditions: string[]; 
+  allergies: string[]; 
+  generatedAvoidanceList: string[]; // AI inferred avoidances
+  customAvoidanceList: string[]; // User manually marked as unsafe
+  safeFoodList: string[]; // User manually marked as safe
+  goals: string; 
   isOnboarded: boolean;
+  theme: 'light' | 'dark';
+  journal: JournalEntry[];
 }
 
 export interface NutrientRisk {
   name: string;
-  amount: string; // e.g. "12g"
-  riskImpact: number; // 0-100, how much it contributes to the risk
+  amount: string; 
+  riskImpact: number; 
   reason: string;
 }
 
@@ -42,5 +53,7 @@ export enum AppView {
   SCANNING = 'SCANNING',
   RESULT = 'RESULT',
   LOADING = 'LOADING',
-  MY_DIET = 'MY_DIET'
+  MY_DIET = 'MY_DIET',
+  JOURNAL = 'JOURNAL',
+  SETTINGS = 'SETTINGS'
 }

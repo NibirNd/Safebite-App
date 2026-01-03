@@ -15,9 +15,6 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onLoginGoogle, onLoginG
   const [stage, setStage] = useState(0);
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  // Get current origin for debugging 400 errors
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-
   // Helper to get Client ID from various environment configurations
   const getClientId = () => {
     // @ts-ignore
@@ -34,6 +31,9 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onLoginGoogle, onLoginG
 
   // Animation Timeline
   useEffect(() => {
+    // Log origin for developer convenience (since we hid the UI element)
+    console.log("SafeBite Configuration: Add this origin to Google Cloud Console:", window.location.origin);
+
     // 0s: "Does this contain Gluten?"
     const t1 = setTimeout(() => setStage(1), 2500); // 2.5s: "Is it safe for my IBS?"
     const t2 = setTimeout(() => setStage(2), 5000); // 5.0s: "Stop Guessing."
@@ -53,7 +53,6 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onLoginGoogle, onLoginG
         window.google.accounts.id.initialize({
           client_id: rawClientId,
           callback: onLoginGoogle,
-          // Add this to help debug origin issues
           auto_select: false,
           cancel_on_tap_outside: true
         });
@@ -143,29 +142,11 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onLoginGoogle, onLoginG
         </p>
       </div>
 
-      {/* Developer Helper for Origin Mismatch */}
-      <div className="w-full max-w-sm border-t border-slate-100 pt-6 mt-4 pb-6">
-        <p className="text-[10px] font-bold text-slate-400 text-center mb-2 uppercase tracking-wide">
-          Developer Configuration
-        </p>
-        <div className="bg-slate-100 p-3 rounded-lg border border-slate-200">
-           <p className="text-[10px] text-slate-500 mb-1">
-             If you see <span className="font-bold text-red-500">Error 400: origin_mismatch</span>, add this URL to "Authorized JavaScript origins" in Google Cloud Console:
-           </p>
-           <p 
-             className="text-[10px] font-mono text-slate-700 bg-white p-2 rounded border border-slate-200 break-all cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all"
-             onClick={() => {
-               navigator.clipboard.writeText(currentOrigin);
-               alert("URL copied to clipboard!");
-             }}
-             title="Click to copy"
-           >
-             {currentOrigin}
-           </p>
-           <p className="text-[9px] text-center text-slate-400 mt-2">
-             (Click URL to copy)
-           </p>
-        </div>
+      {/* Footer */}
+      <div className="w-full text-center pb-2">
+         <p className="text-[10px] text-slate-300 font-medium tracking-wide uppercase">
+            Developed by ND
+         </p>
       </div>
 
     </div>

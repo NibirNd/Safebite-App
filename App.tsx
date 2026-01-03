@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, AppView, AnalysisResult } from './types';
+import { UserProfile, AppView, AnalysisResult, JournalEntry } from './types';
 import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
 import AnalysisResultView from './components/AnalysisResultView';
 import MyDietList from './components/MyDietList';
+import DailyJournal from './components/DailyJournal';
+import SettingsView from './components/SettingsView';
 import IntroAnimation from './components/IntroAnimation';
 import { analyzeFoodImage, analyzeFoodText, generateDietaryRecommendations } from './services/geminiService';
 // @ts-ignore
@@ -16,112 +18,120 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
 
-  // Check for existing session on mount
+  // --- Persistence & Initialization ---
   useEffect(() => {
     const savedProfile = localStorage.getItem('canIHaveThis_user');
     if (savedProfile) {
-      setUserProfile(JSON.parse(savedProfile));
-      setView(AppView.DASHBOARD);
+      try {
+        const parsed = JSON.parse(savedProfile);
+        // Ensure backward compatibility with new fields
+        const hydratedProfile: UserProfile = {
+          ...parsed,
+          safeFoodList: parsed.safeFoodList || [],
+          theme: parsed.theme || 'light',
+          journal: parsed.journal || []
+        };
+        setUserProfile(hydratedProfile);
+        setView(AppView.DASHBOARD);
+      } catch (e) {
+        console.error("Failed to parse profile", e);
+        setView(AppView.INTRO);
+      }
     } else {
       setView(AppView.INTRO);
     }
   }, []);
 
+  // Persist profile whenever it changes
+  const saveProfile = (profile: UserProfile) => {
+    setUserProfile(profile);
+    localStorage.setItem('canIHaveThis_user', JSON.stringify(profile));
+    if (profile.authType === 'GOOGLE' && profile.email) {
+      localStorage.setItem(`canIHaveThis_user_${profile.email}`, JSON.stringify(profile));
+    }
+  };
+
   // --- Auth Handlers ---
 
   const handleGuestLogin = () => {
-    // Guest starts fresh in onboarding
     setView(AppView.ONBOARDING);
   };
 
   const handleGoogleLogin = (credentialResponse: any) => {
     try {
       const decoded: any = jwtDecode(credentialResponse.credential);
-      
-      // Check if we have a profile saved for this email (simulated backend check)
       const storageKey = `canIHaveThis_user_${decoded.email}`;
       const existing = localStorage.getItem(storageKey);
 
       if (existing) {
-        const profile = JSON.parse(existing);
-        setUserProfile(profile);
-        // Update main session key
-        localStorage.setItem('canIHaveThis_user', existing);
+        const parsed = JSON.parse(existing);
+        const hydratedProfile: UserProfile = {
+            ...parsed,
+            safeFoodList: parsed.safeFoodList || [],
+            theme: parsed.theme || 'light',
+            journal: parsed.journal || []
+        };
+        saveProfile(hydratedProfile);
         setView(AppView.DASHBOARD);
       } else {
-        // No profile found, create a partial one and go to Onboarding
         const newProfilePart: Partial<UserProfile> = {
           id: decoded.sub,
           name: decoded.name,
           email: decoded.email,
           authType: 'GOOGLE'
         };
-        // We pass this partial data into Onboarding implicitly via state or context, 
-        // but for now, we'll just handle it in the completion handler.
-        // To make it smoother, we could pre-fill the name in Onboarding.
-        // For simplicity:
-        setUserProfile(newProfilePart as UserProfile); // Temporary cast
+        setUserProfile(newProfilePart as UserProfile);
         setView(AppView.ONBOARDING);
       }
-
     } catch (e) {
       console.error("Login Error", e);
       alert("Failed to sign in with Google.");
     }
   };
 
-  // --- Core App Flow ---
+  const handleLogout = () => {
+    localStorage.removeItem('canIHaveThis_user');
+    setUserProfile(null);
+    setView(AppView.INTRO);
+  };
+
+  // --- Core Logic Handlers ---
 
   const handleOnboardingComplete = async (profileData: UserProfile) => {
-    // Merge with any auth data we might have (e.g. from Google login)
     const finalProfile: UserProfile = {
       ...profileData,
       id: userProfile?.id || `guest-${Date.now()}`,
       authType: userProfile?.authType || 'GUEST',
       email: userProfile?.email,
-      name: userProfile?.name || profileData.name // Prefer Google name if available
+      name: userProfile?.name || profileData.name,
+      safeFoodList: [],
+      theme: 'light',
+      journal: []
     };
 
-    setUserProfile(finalProfile);
     setLoadingMessage("Personalizing your avoidance list...");
     setView(AppView.LOADING);
     
-    // Generate AI recommendations
     try {
         const recommendations = await generateDietaryRecommendations(finalProfile.conditions, finalProfile.allergies);
         const enhancedProfile = {
             ...finalProfile,
             generatedAvoidanceList: recommendations
         };
-        setUserProfile(enhancedProfile);
-        
-        // Save to session
-        localStorage.setItem('canIHaveThis_user', JSON.stringify(enhancedProfile));
-        
-        // If Google User, save to their specific slot too (mock backend)
-        if (enhancedProfile.authType === 'GOOGLE' && enhancedProfile.email) {
-            localStorage.setItem(`canIHaveThis_user_${enhancedProfile.email}`, JSON.stringify(enhancedProfile));
-        }
-
+        saveProfile(enhancedProfile);
     } catch (e) {
-        localStorage.setItem('canIHaveThis_user', JSON.stringify(finalProfile));
+        saveProfile(finalProfile);
     } finally {
         setView(AppView.DASHBOARD);
     }
   };
   
   const handleUpdateProfile = (updatedProfile: UserProfile) => {
-      setUserProfile(updatedProfile);
-      localStorage.setItem('canIHaveThis_user', JSON.stringify(updatedProfile));
-       // If Google User, update their specific slot
-       if (updatedProfile.authType === 'GOOGLE' && updatedProfile.email) {
-        localStorage.setItem(`canIHaveThis_user_${updatedProfile.email}`, JSON.stringify(updatedProfile));
-      }
+      saveProfile(updatedProfile);
   };
 
   const handleTextSearch = async (text: string) => {
     if (!userProfile) return;
-    
     setIsLoading(true);
     setLoadingMessage("Consulting dietary database...");
     setView(AppView.LOADING);
@@ -140,12 +150,10 @@ const App: React.FC = () => {
 
   const handleImageUpload = async (file: File) => {
     if (!userProfile) return;
-
     setIsLoading(true);
     setLoadingMessage("Analyzing ingredients and safety...");
     setView(AppView.LOADING);
 
-    // Convert to base64
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = reader.result as string;
@@ -154,7 +162,7 @@ const App: React.FC = () => {
         setAnalysisResult(result);
         setView(AppView.RESULT);
       } catch (error) {
-        alert("Could not analyze image. Ensure it's clear and contains food or text.");
+        alert("Could not analyze image. Ensure it's clear.");
         setView(AppView.DASHBOARD);
       } finally {
         setIsLoading(false);
@@ -163,57 +171,118 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  // --- Classification & Journaling ---
+
+  const handleClassifyFood = (foodName: string, isSafe: boolean) => {
+    if (!userProfile) return;
+    const updatedProfile = { ...userProfile };
+    
+    if (isSafe) {
+      if (!updatedProfile.safeFoodList.includes(foodName)) {
+        updatedProfile.safeFoodList = [...updatedProfile.safeFoodList, foodName];
+      }
+      // Remove from unsafe if present
+      updatedProfile.customAvoidanceList = updatedProfile.customAvoidanceList.filter(f => f !== foodName);
+    } else {
+      if (!updatedProfile.customAvoidanceList.includes(foodName)) {
+        updatedProfile.customAvoidanceList = [...updatedProfile.customAvoidanceList, foodName];
+      }
+      // Remove from safe if present
+      updatedProfile.safeFoodList = updatedProfile.safeFoodList.filter(f => f !== foodName);
+    }
+    saveProfile(updatedProfile);
+  };
+
+  const handleAddJournalEntry = (entry: JournalEntry) => {
+    if (!userProfile) return;
+    const updatedProfile = {
+      ...userProfile,
+      journal: [entry, ...userProfile.journal]
+    };
+    saveProfile(updatedProfile);
+
+    // Auto-classify if marked explicitly
+    if (entry.status === 'SAFE') {
+      handleClassifyFood(entry.foodName, true);
+    } else if (entry.status === 'UNSAFE') {
+      handleClassifyFood(entry.foodName, false);
+    }
+  };
+
   const handleBackToDashboard = () => {
     setAnalysisResult(null);
     setView(AppView.DASHBOARD);
   };
 
-  // --- Render Views ---
+  // --- Theme Wrapper ---
+  const isDark = userProfile?.theme === 'dark';
 
-  if (view === AppView.INTRO) {
-    return <IntroAnimation onLoginGoogle={handleGoogleLogin} onLoginGuest={handleGuestLogin} />;
-  }
+  return (
+    <div className={`${isDark ? 'dark' : ''} min-h-screen transition-colors duration-300`}>
+      <div className="bg-slate-50 dark:bg-slate-900 min-h-screen text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
+        
+        {view === AppView.INTRO && (
+          <IntroAnimation onLoginGoogle={handleGoogleLogin} onLoginGuest={handleGuestLogin} />
+        )}
 
-  if (view === AppView.LOADING) {
-    return (
-      <div className="min-h-screen flex flex-col justify-center items-center bg-slate-50 p-6 animate-fade-in">
-        <div className="w-16 h-16 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin mb-6"></div>
-        <p className="text-lg font-semibold text-slate-700 animate-pulse text-center">{loadingMessage}</p>
-        <p className="text-sm text-slate-400 mt-2">Checking against your allergens...</p>
-      </div>
-    );
-  }
+        {view === AppView.LOADING && (
+          <div className="min-h-screen flex flex-col justify-center items-center p-6 animate-fade-in">
+            <div className="w-16 h-16 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin mb-6"></div>
+            <p className="text-lg font-semibold text-slate-700 dark:text-slate-200 animate-pulse text-center">{loadingMessage}</p>
+          </div>
+        )}
 
-  if (view === AppView.RESULT && analysisResult) {
-    return <AnalysisResultView result={analysisResult} onBack={handleBackToDashboard} />;
-  }
-  
-  if (view === AppView.MY_DIET && userProfile) {
-      return (
-          <MyDietList 
-            user={userProfile} 
-            onUpdateUser={handleUpdateProfile} 
-            onBack={() => setView(AppView.DASHBOARD)} 
+        {view === AppView.RESULT && analysisResult && (
+          <AnalysisResultView 
+            result={analysisResult} 
+            onBack={handleBackToDashboard}
+            onClassify={handleClassifyFood} 
           />
-      );
-  }
+        )}
+        
+        {view === AppView.MY_DIET && userProfile && (
+            <MyDietList 
+              user={userProfile} 
+              onUpdateUser={handleUpdateProfile} 
+              onBack={() => setView(AppView.DASHBOARD)} 
+            />
+        )}
 
-  if (view === AppView.DASHBOARD && userProfile) {
-    return (
-      <Dashboard 
-        user={userProfile} 
-        onTextSearch={handleTextSearch}
-        onImageUpload={handleImageUpload}
-        onOpenDietProfile={() => setView(AppView.MY_DIET)}
-      />
-    );
-  }
+        {view === AppView.JOURNAL && userProfile && (
+            <DailyJournal
+              user={userProfile}
+              onAddEntry={handleAddJournalEntry}
+              onBack={() => setView(AppView.DASHBOARD)}
+            />
+        )}
 
-  if (view === AppView.ONBOARDING) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
-  }
+        {view === AppView.SETTINGS && userProfile && (
+            <SettingsView
+              user={userProfile}
+              onUpdateUser={handleUpdateProfile}
+              onLogout={handleLogout}
+              onBack={() => setView(AppView.DASHBOARD)}
+            />
+        )}
 
-  return null;
+        {view === AppView.DASHBOARD && userProfile && (
+          <Dashboard 
+            user={userProfile} 
+            onTextSearch={handleTextSearch}
+            onImageUpload={handleImageUpload}
+            onOpenDietProfile={() => setView(AppView.MY_DIET)}
+            onOpenJournal={() => setView(AppView.JOURNAL)}
+            onOpenSettings={() => setView(AppView.SETTINGS)}
+          />
+        )}
+
+        {view === AppView.ONBOARDING && (
+          <Onboarding onComplete={handleOnboardingComplete} />
+        )}
+
+      </div>
+    </div>
+  );
 };
 
 export default App;

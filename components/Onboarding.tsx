@@ -129,6 +129,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       isOnboarded: true,
       generatedAvoidanceList: [], // Populated later
       customAvoidanceList: [],
+      safeFoodList: [],
+      theme: 'light',
+      journal: []
     };
     onComplete(profile);
   };
