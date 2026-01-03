@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile) => void;
+  initialName?: string;
 }
 
-const MEDICAL_CONDITIONS = [
+export const MEDICAL_CONDITIONS = [
   "Celiac Disease",
   "IBS (Irritable Bowel Syndrome)",
   "Lactose Intolerance",
@@ -28,7 +29,7 @@ const MEDICAL_CONDITIONS = [
   "Alpha-gal Syndrome"
 ];
 
-const COMPREHENSIVE_ALLERGENS = [
+export const COMPREHENSIVE_ALLERGENS = [
   "Peanuts", "Tree Nuts", "Milk/Dairy", "Eggs", "Shellfish", "Fish", "Soy", "Wheat", "Sesame",
   "Gluten", "Mustard", "Celery", "Sulfites", "Lupin", "Molluscs", "Corn", "Nightshades",
   "Garlic", "Onion", "FODMAPs", "Red Meat", "Pork", "Alcohol", "Caffeine", "Chocolate",
@@ -36,9 +37,9 @@ const COMPREHENSIVE_ALLERGENS = [
   "MSG", "Food Dyes (Red 40)", "Yeast"
 ];
 
-const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
+const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialName = '' }) => {
   const [step, setStep] = useState(1);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   
   // Condition State
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);

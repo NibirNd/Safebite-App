@@ -108,12 +108,13 @@ const App: React.FC = () => {
   // --- Core Logic Handlers ---
 
   const handleOnboardingComplete = async (profileData: UserProfile) => {
+    // CRITICAL FIX: Prioritize the name from the form (profileData.name), NOT the google profile name.
     const finalProfile: UserProfile = {
       ...profileData,
       id: userProfile?.id || `guest-${Date.now()}`,
       authType: userProfile?.authType || 'GUEST',
       email: userProfile?.email,
-      name: userProfile?.name || profileData.name,
+      name: profileData.name, 
       safeFoodList: [],
       theme: 'light',
       journal: []
@@ -138,6 +139,33 @@ const App: React.FC = () => {
   
   const handleUpdateProfile = (updatedProfile: UserProfile) => {
       saveProfile(updatedProfile);
+  };
+
+  // Handle Updates to Conditions/Allergies which require AI regeneration
+  const handleMedicalUpdate = async (updatedConditions: string[], updatedAllergies: string[], updatedGoals: string) => {
+    if (!userProfile) return;
+    
+    const updatedProfile = { 
+        ...userProfile, 
+        conditions: updatedConditions,
+        allergies: updatedAllergies,
+        goals: updatedGoals
+    };
+
+    setLoadingMessage("Updating your personalized restrictions...");
+    setView(AppView.LOADING);
+
+    try {
+        const recommendations = await generateDietaryRecommendations(updatedConditions, updatedAllergies);
+        updatedProfile.generatedAvoidanceList = recommendations;
+        saveProfile(updatedProfile);
+    } catch (e) {
+        console.error("Failed to regenerate recommendations", e);
+        saveProfile(updatedProfile); // Save changes even if AI fails
+    } finally {
+        // Return to MyDiet view (or wherever called from, but usually here)
+        setView(AppView.MY_DIET);
+    }
   };
 
   const handleTextSearch = async (text: string) => {
@@ -212,24 +240,21 @@ const App: React.FC = () => {
       journal: [entry, ...(userProfile.journal || [])]
     };
 
-    // Auto-classify logic (integrated here to prevent overwriting the journal update)
+    // Auto-classify logic
     const foodName = entry.foodName;
 
     if (entry.status === 'SAFE') {
       if (!updatedProfile.safeFoodList.includes(foodName)) {
         updatedProfile.safeFoodList = [...updatedProfile.safeFoodList, foodName];
       }
-      // Remove from unsafe if present
       updatedProfile.customAvoidanceList = updatedProfile.customAvoidanceList.filter(f => f !== foodName);
     } else if (entry.status === 'UNSAFE') {
       if (!updatedProfile.customAvoidanceList.includes(foodName)) {
         updatedProfile.customAvoidanceList = [...updatedProfile.customAvoidanceList, foodName];
       }
-      // Remove from safe if present
       updatedProfile.safeFoodList = updatedProfile.safeFoodList.filter(f => f !== foodName);
     }
 
-    // Save once
     saveProfile(updatedProfile);
   };
 
@@ -264,6 +289,7 @@ const App: React.FC = () => {
             <MyDietList 
               user={userProfile} 
               onUpdateUser={handleUpdateProfile} 
+              onMedicalUpdate={handleMedicalUpdate}
               onBack={() => setView(AppView.DASHBOARD)} 
             />
         )}
@@ -297,7 +323,10 @@ const App: React.FC = () => {
         )}
 
         {view === AppView.ONBOARDING && (
-          <Onboarding onComplete={handleOnboardingComplete} />
+          <Onboarding 
+            initialName={userProfile?.name} 
+            onComplete={handleOnboardingComplete} 
+          />
         )}
     </div>
   );
