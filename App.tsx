@@ -42,6 +42,15 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // --- Theme Management ---
+  useEffect(() => {
+    if (userProfile?.theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [userProfile?.theme]);
+
   // Persist profile whenever it changes
   const saveProfile = (profile: UserProfile) => {
     setUserProfile(profile);
@@ -93,6 +102,7 @@ const App: React.FC = () => {
     localStorage.removeItem('canIHaveThis_user');
     setUserProfile(null);
     setView(AppView.INTRO);
+    document.documentElement.classList.remove('dark');
   };
 
   // --- Core Logic Handlers ---
@@ -195,18 +205,32 @@ const App: React.FC = () => {
 
   const handleAddJournalEntry = (entry: JournalEntry) => {
     if (!userProfile) return;
-    const updatedProfile = {
+    
+    // Create a new updated profile object starting with the journal entry
+    let updatedProfile = {
       ...userProfile,
-      journal: [entry, ...userProfile.journal]
+      journal: [entry, ...(userProfile.journal || [])]
     };
-    saveProfile(updatedProfile);
 
-    // Auto-classify if marked explicitly
+    // Auto-classify logic (integrated here to prevent overwriting the journal update)
+    const foodName = entry.foodName;
+
     if (entry.status === 'SAFE') {
-      handleClassifyFood(entry.foodName, true);
+      if (!updatedProfile.safeFoodList.includes(foodName)) {
+        updatedProfile.safeFoodList = [...updatedProfile.safeFoodList, foodName];
+      }
+      // Remove from unsafe if present
+      updatedProfile.customAvoidanceList = updatedProfile.customAvoidanceList.filter(f => f !== foodName);
     } else if (entry.status === 'UNSAFE') {
-      handleClassifyFood(entry.foodName, false);
+      if (!updatedProfile.customAvoidanceList.includes(foodName)) {
+        updatedProfile.customAvoidanceList = [...updatedProfile.customAvoidanceList, foodName];
+      }
+      // Remove from safe if present
+      updatedProfile.safeFoodList = updatedProfile.safeFoodList.filter(f => f !== foodName);
     }
+
+    // Save once
+    saveProfile(updatedProfile);
   };
 
   const handleBackToDashboard = () => {
@@ -214,12 +238,8 @@ const App: React.FC = () => {
     setView(AppView.DASHBOARD);
   };
 
-  // --- Theme Wrapper ---
-  const isDark = userProfile?.theme === 'dark';
-
   return (
-    <div className={`${isDark ? 'dark' : ''} min-h-screen transition-colors duration-300`}>
-      <div className="bg-slate-50 dark:bg-slate-900 min-h-screen text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
+    <div className="min-h-screen transition-colors duration-300 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans">
         
         {view === AppView.INTRO && (
           <IntroAnimation onLoginGoogle={handleGoogleLogin} onLoginGuest={handleGuestLogin} />
@@ -279,8 +299,6 @@ const App: React.FC = () => {
         {view === AppView.ONBOARDING && (
           <Onboarding onComplete={handleOnboardingComplete} />
         )}
-
-      </div>
     </div>
   );
 };

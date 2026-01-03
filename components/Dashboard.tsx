@@ -13,6 +13,7 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ user, onTextSearch, onImageUpload, onOpenDietProfile, onOpenJournal, onOpenSettings }) => {
   const [query, setQuery] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -20,6 +21,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onTextSearch, onImageUpload
 
   // --- Camera Logic ---
   const startCamera = async () => {
+    setCameraError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment' } 
@@ -28,10 +30,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onTextSearch, onImageUpload
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Camera error", err);
-      alert("Could not access camera. Please use the upload option instead.");
-      setIsCameraOpen(false);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCameraError("Permission denied. Please enable camera access in your browser settings and try again.");
+      } else if (err.name === 'NotFoundError') {
+        setCameraError("No camera device found on this device.");
+      } else {
+        setCameraError("Unable to access camera. Please try using the upload button instead.");
+      }
     }
   };
 
@@ -41,6 +48,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onTextSearch, onImageUpload
       streamRef.current = null;
     }
     setIsCameraOpen(false);
+    setCameraError(null);
   };
 
   const capturePhoto = () => {
@@ -68,7 +76,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onTextSearch, onImageUpload
     } else {
       stopCamera();
     }
-    return () => stopCamera();
+    return () => {
+      // Cleanup on unmount
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
   }, [isCameraOpen]);
   // --------------------
 
@@ -91,28 +104,47 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onTextSearch, onImageUpload
       {/* Camera Overlay */}
       {isCameraOpen && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
-          <video 
-            ref={videoRef} 
-            autoPlay 
-            playsInline 
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute top-4 right-4">
-            <button 
-              onClick={() => setIsCameraOpen(false)}
-              className="bg-black/50 text-white p-2 rounded-full backdrop-blur-md"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
-          </div>
-          <div className="absolute bottom-8 w-full flex justify-center">
-            <button 
-              onClick={capturePhoto}
-              className="w-20 h-20 bg-white rounded-full border-4 border-teal-500 shadow-lg flex items-center justify-center active:scale-95 transition-transform"
-            >
-              <div className="w-16 h-16 bg-white rounded-full border-2 border-black/10"></div>
-            </button>
-          </div>
+          
+          {cameraError ? (
+            <div className="p-8 text-center max-w-sm">
+                <div className="w-16 h-16 bg-red-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><path d="M19.69 14a6.9 6.9 0 0 0 .31-2c0-3.87-3.13-7-7-7-1.5 0-2.86.6-3.9 1.64"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path><path d="M20 22a2 2 0 0 1-2-2"></path><path d="M4.93 19.07a10 10 0 0 1-1.93-7.07c0-5.52 4.48-10 10-10"></path></svg>
+                </div>
+                <h3 className="text-white font-bold text-xl mb-2">Camera Error</h3>
+                <p className="text-slate-400 mb-6">{cameraError}</p>
+                <button 
+                  onClick={() => setIsCameraOpen(false)}
+                  className="bg-slate-800 text-white px-6 py-3 rounded-full font-semibold border border-slate-700"
+                >
+                  Close
+                </button>
+            </div>
+          ) : (
+            <>
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute top-4 right-4">
+                <button 
+                  onClick={() => setIsCameraOpen(false)}
+                  className="bg-black/50 text-white p-2 rounded-full backdrop-blur-md"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+              <div className="absolute bottom-8 w-full flex justify-center">
+                <button 
+                  onClick={capturePhoto}
+                  className="w-20 h-20 bg-white rounded-full border-4 border-teal-500 shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+                >
+                  <div className="w-16 h-16 bg-white rounded-full border-2 border-black/10"></div>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

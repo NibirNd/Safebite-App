@@ -7,6 +7,27 @@
     <title>SafeBite: AI Food Scanner</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              slate: { 850: '#1e293b' }
+            },
+            animation: {
+              'fade-in-up': 'fadeInUp 0.3s ease-out forwards',
+            },
+            keyframes: {
+              fadeInUp: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
     <!-- Google One Tap / Sign In -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
