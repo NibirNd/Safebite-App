@@ -25,14 +25,31 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onLoginGoogle, onLoginG
     return process.env.GOOGLE_CLIENT_ID;
   };
 
-  // Use the provided Client ID or fallback to the hardcoded one for this specific user
-  const rawClientId = getClientId() || "612336816998-a9tkiguq245i373asne6op7f7g7iiqg1.apps.googleusercontent.com";
-  const isGoogleConfigured = rawClientId && rawClientId.length > 0 && rawClientId !== "YOUR_GOOGLE_CLIENT_ID_HERE";
+  const DEFAULT_CLIENT_ID = "612336816998-a9tkiguq245i373asne6op7f7g7iiqg1.apps.googleusercontent.com";
+  // Use the provided Client ID or fallback to the hardcoded one
+  const rawClientId = getClientId() || DEFAULT_CLIENT_ID;
+  const isGoogleConfigured = rawClientId && rawClientId.length > 0;
+  const isDefaultId = rawClientId === DEFAULT_CLIENT_ID;
 
   // Animation Timeline
   useEffect(() => {
-    // Log origin for developer convenience (since we hid the UI element)
-    console.log("SafeBite Configuration: Add this origin to Google Cloud Console:", window.location.origin);
+    // Enhanced Debugging for Origin Mismatch
+    console.group("🔐 SafeBite Auth Configuration");
+    console.log("Current Origin:", window.location.origin);
+    console.log("Active Client ID:", rawClientId);
+    
+    if (isDefaultId) {
+        console.warn("%c⚠️ USING DEMO CLIENT ID", "color: orange; font-weight: bold; font-size: 12px;");
+        console.warn("You are using the default demo Client ID. This ID DOES NOT authorize '" + window.location.origin + "'.");
+        console.warn("To fix 'Error 400: origin_mismatch':");
+        console.warn("1. Create a Google Cloud Project.");
+        console.warn("2. Create a generic OAuth Client ID.");
+        console.warn("3. Add '" + window.location.origin + "' to Authorized Javascript Origins.");
+        console.warn("4. Set VITE_GOOGLE_CLIENT_ID in your environment variables (e.g., .env.local or Vercel Settings) to your NEW Client ID.");
+    } else {
+        console.log("✅ Using Custom Client ID. Ensure '" + window.location.origin + "' is added to this Client ID in Google Cloud Console.");
+    }
+    console.groupEnd();
 
     // 0s: "Does this contain Gluten?"
     const t1 = setTimeout(() => setStage(1), 2500); // 2.5s: "Is it safe for my IBS?"
@@ -44,7 +61,7 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onLoginGoogle, onLoginG
       clearTimeout(t2);
       clearTimeout(t3);
     };
-  }, []);
+  }, [rawClientId, isDefaultId]);
 
   // Initialize Google Button when we reach the final stage
   useEffect(() => {
@@ -120,6 +137,12 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onLoginGoogle, onLoginG
              <div className="text-center text-sm text-red-500 p-2 border border-red-200 rounded bg-red-50">
                Google Client ID is missing.
              </div>
+           )}
+           {isDefaultId && window.location.hostname !== 'localhost' && (
+               <div className="text-center text-[10px] text-amber-600 p-2 bg-amber-50 border border-amber-100 rounded mt-2">
+                   Configuration Error: You are using the default Demo ID on a production URL. 
+                   Google Sign-In will fail. Please set VITE_GOOGLE_CLIENT_ID.
+               </div>
            )}
         </div>
 
