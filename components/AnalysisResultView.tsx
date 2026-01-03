@@ -1,0 +1,123 @@
+import React from 'react';
+import { AnalysisResult, ThreatLevel } from '../types';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+
+interface AnalysisResultViewProps {
+  result: AnalysisResult;
+  onBack: () => void;
+}
+
+const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ result, onBack }) => {
+  const isSafe = result.canEat;
+  const isHighRisk = result.threatLevel === ThreatLevel.HIGH;
+
+  const bgGradient = isSafe 
+    ? 'bg-gradient-to-b from-green-50 to-slate-50' 
+    : isHighRisk 
+      ? 'bg-gradient-to-b from-red-50 to-slate-50'
+      : 'bg-gradient-to-b from-amber-50 to-slate-50';
+
+  const accentColor = isSafe
+    ? 'text-green-600 bg-green-100 border-green-200'
+    : isHighRisk
+      ? 'text-red-600 bg-red-100 border-red-200'
+      : 'text-amber-600 bg-amber-100 border-amber-200';
+
+  // Prepare chart data
+  const chartData = result.nutrients.map(n => ({
+    name: n.name.substring(0, 10), // Truncate for mobile
+    risk: n.riskImpact,
+    fullReason: n.reason
+  }));
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-slate-200 rounded shadow-lg text-xs max-w-[200px]">
+          <p className="font-bold">{label}</p>
+          <p className="text-slate-600 mb-1">Risk Contribution: {payload[0].value}/100</p>
+          <p className="text-slate-400 italic">{payload[0].payload.fullReason}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className={`min-h-screen ${bgGradient} flex flex-col p-6 animate-slide-up pb-24`}>
+      {/* Header */}
+      <button onClick={onBack} className="self-start mb-6 p-2 rounded-full bg-white shadow-sm border border-slate-100">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+
+      {/* Hero Result */}
+      <div className="flex flex-col items-center mb-8 text-center">
+        <div className={`w-24 h-24 rounded-full flex items-center justify-center border-4 mb-4 ${
+          isSafe ? 'border-green-200 bg-green-100' : isHighRisk ? 'border-red-200 bg-red-100' : 'border-amber-200 bg-amber-100'
+        }`}>
+          {isSafe 
+            ? <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            : <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isHighRisk ? "text-red-600" : "text-amber-600"}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          }
+        </div>
+        
+        <h1 className="text-3xl font-bold text-slate-900 mb-1">{result.foodName}</h1>
+        <div className={`px-4 py-1.5 rounded-full text-sm font-bold border tracking-wider ${accentColor}`}>
+          {result.threatLevel} THREAT
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+        <h2 className="font-bold text-slate-800 mb-2">Verdict</h2>
+        <p className="text-slate-600 leading-relaxed">{result.detailedReasoning}</p>
+        
+        {result.riskyIngredients.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Risky Ingredients Identified</h3>
+            <div className="flex flex-wrap gap-2">
+              {result.riskyIngredients.map((ing, i) => (
+                <span key={i} className="px-2 py-1 bg-red-50 text-red-700 text-xs rounded border border-red-100 font-medium">
+                  {ing}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Nutrient Impact Chart */}
+      {result.nutrients.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+          <h2 className="font-bold text-slate-800 mb-4">Risk Factors & Nutrients</h2>
+          <div className="h-48 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <XAxis dataKey="name" fontSize={10} stroke="#94a3b8" />
+                <YAxis hide />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="risk" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.risk > 50 ? '#ef4444' : entry.risk > 20 ? '#f59e0b' : '#10b981'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Sticky Bottom Action */}
+      <div className="fixed bottom-6 left-0 right-0 px-6">
+        <button 
+          onClick={onBack}
+          className="w-full bg-slate-900 text-white py-4 rounded-2xl font-semibold shadow-xl shadow-slate-300 active:scale-95 transition-transform"
+        >
+          Scan Something Else
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default AnalysisResultView;

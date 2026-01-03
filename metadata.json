@@ -1,0 +1,7 @@
+{
+  "name": "SafeBite: AI Food Scanner",
+  "description": "The smart food label scanner for complex diets. Manage Celiac, IBS, Diabetes, and Allergies with personalized AI analysis.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
