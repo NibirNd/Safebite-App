@@ -18,6 +18,7 @@ export interface UserProfile {
   authType: 'GUEST' | 'GOOGLE';
   email?: string;
   name: string;
+  avatar?: string; // New field for digital avatar
   conditions: string[]; 
   allergies: string[]; 
   generatedAvoidanceList: string[]; // AI inferred avoidances

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserProfile } from '../types';
 
 interface SettingsViewProps {
@@ -8,11 +8,29 @@ interface SettingsViewProps {
   onBack: () => void;
 }
 
+const AVATAR_OPTIONS = ['🐶', '🐱', '🦊', '🦁', '🐸', '🦄', '🐝', '🥑', '🥗', '🍎', '🤖', '👾'];
+
 const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onLogout, onBack }) => {
-  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(user.name);
+  const [editAvatar, setEditAvatar] = useState(user.avatar || '');
+
   const toggleTheme = () => {
     const newTheme = user.theme === 'dark' ? 'light' : 'dark';
     onUpdateUser({ ...user, theme: newTheme });
+  };
+
+  const handleSaveProfile = () => {
+    if (editName.trim()) {
+      onUpdateUser({ ...user, name: editName.trim(), avatar: editAvatar });
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(user.name);
+    setEditAvatar(user.avatar || '');
+    setIsEditing(false);
   };
 
   return (
@@ -28,12 +46,77 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onLogou
       <div className="p-6">
         
         {/* Profile Section */}
-        <div className="mb-8 flex flex-col items-center">
-            <div className="w-20 h-20 bg-teal-100 dark:bg-teal-900 rounded-full flex items-center justify-center text-teal-700 dark:text-teal-300 text-3xl font-bold mb-3 border-4 border-white dark:border-slate-800 shadow-lg">
-                {user.name.charAt(0).toUpperCase()}
-            </div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">{user.name}</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{user.email || 'Guest User'}</p>
+        <div className="mb-8 flex flex-col items-center bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all">
+            
+            {/* Avatar Display / Selection */}
+            {isEditing ? (
+              <div className="mb-4 w-full">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 text-center">Choose Avatar</label>
+                <div className="flex flex-wrap justify-center gap-2 mb-4">
+                   <button 
+                     onClick={() => setEditAvatar('')}
+                     className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${editAvatar === '' ? 'border-teal-500 bg-teal-50' : 'border-slate-200 dark:border-slate-600'}`}
+                   >
+                     <span className="text-sm font-bold text-slate-500">Init</span>
+                   </button>
+                   {AVATAR_OPTIONS.map(char => (
+                     <button 
+                       key={char}
+                       onClick={() => setEditAvatar(char)}
+                       className={`w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 ${editAvatar === char ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30' : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                     >
+                       {char}
+                     </button>
+                   ))}
+                </div>
+              </div>
+            ) : (
+              <div className="w-24 h-24 bg-teal-100 dark:bg-teal-900 rounded-full flex items-center justify-center text-teal-700 dark:text-teal-300 text-4xl font-bold mb-3 border-4 border-white dark:border-slate-700 shadow-lg">
+                  {user.avatar ? user.avatar : user.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+
+            {/* Name Display / Edit */}
+            {isEditing ? (
+              <div className="w-full mb-4">
+                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Display Name</label>
+                 <input 
+                   type="text" 
+                   value={editName}
+                   onChange={(e) => setEditName(e.target.value)}
+                   className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-teal-500 text-center font-bold text-lg dark:text-white"
+                 />
+              </div>
+            ) : (
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{user.name}</h2>
+            )}
+
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{user.email || 'Guest User'}</p>
+
+            {/* Edit Actions */}
+            {isEditing ? (
+              <div className="flex gap-3 w-full">
+                <button 
+                  onClick={handleCancelEdit}
+                  className="flex-1 py-2 text-slate-500 font-medium hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSaveProfile}
+                  className="flex-1 py-2 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="px-6 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-full text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                Edit Profile
+              </button>
+            )}
         </div>
 
         {/* Options */}
@@ -67,7 +150,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onLogou
                 Log Out
             </button>
             
-            <p className="text-center text-xs text-slate-400 mt-4">SafeBite v1.0.1</p>
+            <p className="text-center text-xs text-slate-400 mt-4">SafeBite v1.1.0</p>
         </div>
       </div>
     </div>
